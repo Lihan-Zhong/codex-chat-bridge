@@ -1,0 +1,214 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+bridge_dir="${CODEXBRIDGE_DIR:-$HOME/CodexBridge}"
+state_dir="${CODEX_WX_STATE_DIR:-$HOME/.codexbridge}"
+codex_bin="${CODEX_REAL_BIN:-$(command -v codex || true)}"
+env_file="$bridge_dir/.env.local"
+launcher_dir="$state_dir/codex-wx"
+current_file="$launcher_dir/current"
+bridge_tmux="codex-wx-bridge"
+appserver_tmux="codex-wx-appserver"
+appserver_port="${CODEX_WX_APP_SERVER_PORT:-$((47000 + $(id -u) % 1000))}"
+appserver_url="ws://127.0.0.1:$appserver_port"
+action="${1:-start}"
+
+mkdir -p "$launcher_dir"
+
+if [[ -z "$codex_bin" || ! -x "$codex_bin" ]]; then
+  echo "Codex executable not found; set CODEX_REAL_BIN." >&2
+  exit 1
+fi
+if [[ ! -f "$env_file" ]]; then
+  echo "CodexBridge config not found: $env_file" >&2
+  exit 1
+fi
+
+# Keep service sessions independent from an outer/stale tmux environment.
+wx_tmux() {
+  TMUX= tmux -L codex-wx-runtime "$@"
+}
+
+update_env_key() {
+  local key="$1"
+  local value="$2"
+  local temp_file
+  temp_file="$(mktemp "$launcher_dir/env.XXXXXX")"
+  awk -v key="$key" -v value="$value" '
+    BEGIN { replaced = 0 }
+    $0 ~ "^" key "=" {
+      if (!replaced) print key "=" value
+      replaced = 1
+      next
+    }
+    { print }
+    END { if (!replaced) print key "=" value }
+  ' "$env_file" > "$temp_file"
+  chmod --reference="$env_file" "$temp_file"
+  mv "$temp_file" "$env_file"
+}
+
+login_weixin() {
+  local login_log account_id user_id
+  login_log="$(mktemp "$launcher_dir/login.XXXXXX")"
+  trap 'rm -f "${login_log:-}"' RETURN
+  echo "二维码出现后请扫码并在微信中确认，然后保持本命令运行。"
+  echo "必须等到终端显示登录成功以及 account_id/user_id，才算完成。"
+  (
+    cd "$bridge_dir"
+    ./scripts/hpc-node24.sh npm run weixin:login -- --state-dir "$state_dir"
+  ) 2>&1 | tee "$login_log"
+  account_id="$(sed -n 's/^account_id: //p' "$login_log" | tail -n 1)"
+  user_id="$(sed -n 's/^user_id: //p' "$login_log" | tail -n 1)"
+  if [[ -z "$account_id" || -z "$user_id" ]]; then
+    echo "微信登录完成，但没有取得 account_id/user_id。" >&2
+    return 1
+  fi
+  update_env_key WEIXIN_ACCOUNT_ID "$account_id"
+  update_env_key WEIXIN_ALLOWED_USERS "$user_id"
+  update_env_key WEIXIN_DM_POLICY allowlist
+  update_env_key WEIXIN_GROUP_POLICY disabled
+  echo "微信账号已登录并加入私聊白名单。"
+}
+
+has_weixin_login() {
+  local account_id
+  account_id="$(sed -n 's/^WEIXIN_ACCOUNT_ID=//p' "$env_file" | tail -n 1)"
+  [[ -n "$account_id" && -f "$state_dir/weixin/accounts/$account_id.json" ]]
+}
+
+create_thread() {
+  local cwd="$1"
+  local event_log thread_id
+  event_log="$(mktemp "$launcher_dir/thread.XXXXXX")"
+  if ! "$codex_bin" exec --json -C "$cwd" --skip-git-repo-check \
+    "Initialize this dedicated Codex-Weixin terminal session. Reply only: Ready." > "$event_log"; then
+    rm -f "$event_log"
+    return 1
+  fi
+  thread_id="$(sed -nE 's/.*"thread_id":"([^"]+)".*/\1/p' "$event_log" | head -n 1)"
+  rm -f "$event_log"
+  if [[ -z "$thread_id" ]]; then
+    echo "无法从 Codex 初始化事件中取得 thread ID。" >&2
+    return 1
+  fi
+  printf '%s\n%s\n' "$cwd" "$thread_id" > "$current_file"
+  chmod 600 "$current_file"
+  printf '%s' "$thread_id"
+}
+
+resolve_thread() {
+  local cwd="$1"
+  local saved_cwd saved_thread
+  if [[ -f "$current_file" ]]; then
+    saved_cwd="$(sed -n '1p' "$current_file")"
+    saved_thread="$(sed -n '2p' "$current_file")"
+    if [[ "$saved_cwd" == "$cwd" && -n "$saved_thread" ]]; then
+      printf '%s' "$saved_thread"
+      return
+    fi
+  fi
+  create_thread "$cwd"
+}
+
+restart_runtime() {
+  local log_file app_log command app_command health_url
+  log_file="$launcher_dir/weixin-serve.log"
+  app_log="$launcher_dir/app-server.log"
+  if wx_tmux has-session -t "$bridge_tmux" 2>/dev/null; then
+    wx_tmux kill-session -t "$bridge_tmux"
+  fi
+  if wx_tmux has-session -t "$appserver_tmux" 2>/dev/null; then
+    wx_tmux kill-session -t "$appserver_tmux"
+  fi
+  printf -v app_command 'exec %q app-server --listen %q' "$codex_bin" "$appserver_url"
+  wx_tmux new-session -d -s "$appserver_tmux" '/usr/bin/sleep 86400'
+  wx_tmux set-option -t "$appserver_tmux" remain-on-exit on
+  local pipe_command
+  printf -v pipe_command 'tee -a %q >/dev/null' "$app_log"
+  wx_tmux pipe-pane -o -t "$appserver_tmux" "$pipe_command"
+  wx_tmux respawn-pane -k -t "$appserver_tmux" "$app_command"
+  health_url="${appserver_url/ws:\/\//http:\/\/}"
+  for _ in {1..100}; do
+    curl --silent --fail "$health_url/readyz" >/dev/null 2>&1 && break
+    if ! wx_tmux has-session -t "$appserver_tmux" 2>/dev/null \
+      || [[ "$(wx_tmux display-message -p -t "$appserver_tmux" '#{pane_dead}' 2>/dev/null)" == "1" ]]; then
+      echo "Codex app-server 启动失败，请查看 $app_log" >&2
+      return 1
+    fi
+    sleep 0.1
+  done
+  curl --silent --fail "$health_url/readyz" >/dev/null 2>&1 || {
+    echo "等待 Codex app-server 超时：$appserver_url" >&2
+    return 1
+  }
+  printf -v command 'cd %q && export CODEX_APP_SERVER_URL=%q CODEX_APP_SERVER_TRANSPORT=websocket && exec ./scripts/hpc-node24.sh npm run weixin:serve -- --state-dir %q >> %q 2>&1' "$bridge_dir" "$appserver_url" "$state_dir" "$log_file"
+  wx_tmux new-session -d -s "$bridge_tmux" "$command"
+}
+
+show_status() {
+  if [[ -f "$current_file" ]]; then
+    echo "cwd: $(sed -n '1p' "$current_file")"
+    echo "thread: $(sed -n '2p' "$current_file")"
+  else
+    echo "thread: not initialized"
+  fi
+  if wx_tmux has-session -t "$bridge_tmux" 2>/dev/null; then
+    echo "weixin bridge: running"
+  else
+    echo "weixin bridge: stopped"
+  fi
+  if wx_tmux has-session -t "$appserver_tmux" 2>/dev/null; then
+    echo "app-server: running ($appserver_url)"
+  else
+    echo "app-server: stopped"
+  fi
+  has_weixin_login && echo "weixin login: present" || echo "weixin login: required"
+}
+
+stop_runtime() {
+  local stopped=0
+  if wx_tmux has-session -t "$bridge_tmux" 2>/dev/null; then
+    wx_tmux kill-session -t "$bridge_tmux"
+    echo "stopped: $bridge_tmux"
+    stopped=1
+  fi
+  if wx_tmux has-session -t "$appserver_tmux" 2>/dev/null; then
+    wx_tmux kill-session -t "$appserver_tmux"
+    echo "stopped: $appserver_tmux"
+    stopped=1
+  fi
+  if [[ "$stopped" -eq 0 ]]; then
+    echo "codex-wx runtime is already stopped on this host"
+  fi
+}
+
+case "$action" in
+  login)
+    login_weixin
+    ;;
+  status)
+    show_status
+    ;;
+  stop)
+    stop_runtime
+    ;;
+  start)
+    if ! has_weixin_login; then
+      echo "首次使用需要扫描微信二维码。"
+      login_weixin
+    fi
+    working_dir="$(pwd -P)"
+    thread_id="$(resolve_thread "$working_dir")"
+    update_env_key CODEXBRIDGE_WEIXIN_THREAD_ID "$thread_id"
+    update_env_key CODEXBRIDGE_DEFAULT_CWD "$working_dir"
+    restart_runtime
+    echo "微信已绑定到 Codex thread: $thread_id"
+    echo "微信桥日志: $launcher_dir/weixin-serve.log"
+    exec "$codex_bin" resume --remote "$appserver_url" --cd "$working_dir" "$thread_id"
+    ;;
+  *)
+    echo "usage: codex-wx [start|login|status|stop]" >&2
+    exit 2
+    ;;
+esac

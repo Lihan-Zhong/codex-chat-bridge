@@ -1,0 +1,4 @@
+interface:
+  display_name: "Codex Weixin Bridge"
+  short_description: "管理并恢复 HPC 上的微信 Codex 共享终端桥"
+  default_prompt: "Use $codex-weixin-bridge to start, inspect, or recover my Weixin-connected Codex TUI and persistent thread."

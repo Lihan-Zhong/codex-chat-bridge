@@ -1,0 +1,4 @@
+interface:
+  display_name: "Codex Discord Bridge"
+  short_description: "管理并恢复 HPC 上的 Discord-Codex 持久桥"
+  default_prompt: "Use $codex-discord-bridge to start, inspect, or recover my persistent Discord-connected Codex session."
