@@ -179,7 +179,7 @@ Discord 和微信共享同一种运行模型：localhost app-server、持久 thr
 - 面向未来 Codex app-server 协议版本的集成测试；
 - 更安全的“回复送达后滚动重启”机制。
 
-启发了本仓库风格与“每项目一个 bot”工作流的姐妹项目：
+启发源自本仓库风格与“每项目一个 bot”工作流的姐妹项目：
 
 - [`claude-code-discord-multibot`](https://github.com/Lihan-Zhong/claude-code-discord-multibot)
 - [`claude-code-telegram-multibot`](https://github.com/Lihan-Zhong/claude-code-telegram-multibot)
