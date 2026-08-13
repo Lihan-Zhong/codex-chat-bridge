@@ -1,6 +1,6 @@
 ---
 name: codex-discord-bridge
-description: Configure, start, resume, inspect, test, upgrade, or troubleshoot the local codex-discord-multibot bridge that connects Discord channels to persistent Codex app-server threads. Use for codex-dc setup, Discord bot allowlists, shared terminal/Discord threads, commentary progress delivery, image attachments, bridge status and logs, history-on-demand commands, project isolation, tmux use, HPC job expiry or cross-node recovery, and safe bridge restarts.
+description: Configure, start, resume, inspect, test, upgrade, or troubleshoot the local codex-discord-multibot bridge that connects Discord channels to persistent Codex app-server threads. Use for codex-dc setup, Discord bot allowlists, shared terminal/Discord threads, commentary progress delivery, image attachments, Discord presence with Slurm node/time-left status, bridge logs, history-on-demand commands, project isolation, tmux use, HPC job expiry or cross-node recovery, and safe bridge restarts.
 ---
 
 # Codex Discord Bridge
@@ -27,6 +27,7 @@ Manage the checkout selected by `CODEX_DISCORD_BRIDGE_ROOT`, or the repository's
 - Treat app-server `item/started` events for `commandExecution`, `fileChange`, `mcpToolCall`, `dynamicToolCall`, `collabAgentToolCall`, `webSearch`, `imageView`, `sleep`, and `imageGeneration` as tool boundaries. Do not flush for agent-message, reasoning, plan, punctuation, newline, elapsed time, or buffer length alone.
 - Track whether commentary was already delivered. If an interrupted or commentary-only turn has no final-answer text, do not resend the accumulated commentary as a duplicate final reply.
 - Preserve multimodal input: download allowlisted Discord CDN image types with size/time limits, pass them as Codex `localImage` inputs, and remove per-turn temporary files afterward.
+- Preserve truthful Discord presence: explicitly set `online`, display `node · ⏳Slurm-time-left · project`, query the process's own `SLURM_JOB_ID` asynchronously, refresh no more often than every 15 minutes, and `unref()` the timer. Fall back to `node · project` outside Slurm; presence failures must never break message delivery.
 - Attach a terminal to an existing shared thread using the project `scripts/attach-thread.sh` and its explicit instance env.
 - After an HPC allocation expires, enter a new compute allocation, return to the same project directory, create/attach a user tmux, and run `codex-dc`. Reuse the persisted instance env and thread ID; never reinitialize.
 - Distinguish node-local processes/tmux sockets from shared Lustre state. A bridge is offline between allocations, but its Discord token, allowlists, thread ID, and Codex history persist.

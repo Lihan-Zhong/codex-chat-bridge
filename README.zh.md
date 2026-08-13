@@ -33,6 +33,7 @@ Discord ─── adapter ───┐
 ### Discord —— 参考实现
 
 - 🔁 Discord ↔ Codex 双向通信
+- 🟢 在线 presence 显示计算节点、Slurm 剩余时间和项目名
 - 🖥️ Discord 与 Codex TUI 共同显示同一个 thread
 - ⏳ 事件驱动的中间进度：只在工具开始前，把完整 commentary 合并发送
 - 🖼️ PNG、JPEG、WebP 附件作为真正的多模态图片输入
@@ -151,6 +152,7 @@ Discord 和微信共享同一种运行模型：localhost app-server、持久 thr
 ## 🐛 HPC 恢复与常见坑
 
 - **Allocation 到期：** 进入新的计算节点，回到原项目目录，再运行 `codex-dc` 或 `codex-wx`。凭据和 thread 元数据会保留，节点本地进程不会。
+- **Presence：** `node177 · ⏳6d19h · project` 每 15 分钟刷新；绿点是真实的 Gateway 健康信号，非 Slurm 环境退化为 `node · project`。
 - **`/tmp/tmux-<uid>/default` 不存在：** 通常是外层 `$TMUX` 已过期；微信 launcher 使用独立的 `codex-wx-runtime` socket。
 - **Discord 先报 `app-server is not connected`，随后又成功：** 多半是两个 bridge 同时消费同一个 bot token。只保留当前实例 PID 文件指向的 bridge。
 - **服务器频道消息被忽略：** 当 `DISCORD_REQUIRE_MENTION=true` 时需要 @bot，同时检查用户和频道白名单。

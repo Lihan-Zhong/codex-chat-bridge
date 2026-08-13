@@ -33,6 +33,7 @@ The chat adapter and terminal attach to the same app-server and thread. Messages
 ### Discord — reference implementation
 
 - 🔁 Bidirectional Discord ↔ Codex messaging
+- 🟢 Live presence showing compute node, Slurm time left, and project name
 - 🖥️ One shared thread visible in both Discord and the Codex TUI
 - ⏳ Event-driven progress: commentary is grouped and sent only immediately before a tool starts
 - 🖼️ PNG, JPEG, and WebP attachments passed to Codex as real multimodal input
@@ -151,6 +152,7 @@ CodexBridge is not vendored because its upstream repository currently does not p
 ## 🐛 HPC recovery and common traps
 
 - **Allocation expired:** enter a new compute allocation, return to the same project, and run `codex-dc` or `codex-wx`. Credentials and thread metadata persist; node-local processes do not.
+- **Presence:** `node177 · ⏳6d19h · project` refreshes every 15 minutes. The green dot is a real Gateway health signal; outside Slurm it falls back to `node · project`.
 - **`/tmp/tmux-<uid>/default` missing:** that is usually a stale outer `$TMUX`. The Weixin launcher uses its own `codex-wx-runtime` socket.
 - **Discord replies with `app-server is not connected`, then succeeds:** two bridge processes are probably consuming the same bot token. Keep only the bridge PID recorded by the active instance.
 - **Discord ignores server messages:** mention the bot when `DISCORD_REQUIRE_MENTION=true`, and verify both user and channel allowlists.

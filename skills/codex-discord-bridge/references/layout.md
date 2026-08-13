@@ -10,6 +10,7 @@ Key source files:
 - `src/state.ts`: Discord channel to Codex thread persistence
 - `src/history.ts`: explicit `!codex history` request parsing and formatting
 - `src/progress-relay.ts`: throttled early Discord delivery for Codex commentary
+- `src/presence.ts`: online health indicator plus compute node, Slurm time-left, and project activity
 - `src/attachments.ts`: bounded Discord CDN image download and `localImage` input preparation
 - `codex-dc.bash`: interactive project initialization and lifecycle functions
 - `scripts/attach-thread.sh`: attach a terminal TUI to a shared remote thread
