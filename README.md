@@ -2,16 +2,16 @@
 
 # Codex Chat Bridge
 
-### Your Codex terminal, now inside Discord and Weixin.
+### Your Codex terminal, now inside Telegram, Discord, and Weixin.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-4c1.svg)](LICENSE)
 ![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A520-339933?logo=nodedotjs&logoColor=white)
-![Platforms](https://img.shields.io/badge/Chat-Discord%20%7C%20Weixin-5865F2)
+![Platforms](https://img.shields.io/badge/Chat-Telegram%20%7C%20Discord%20%7C%20Weixin-5865F2)
 ![HPC ready](https://img.shields.io/badge/HPC-recovery_ready-orange)
 
 > **TL;DR** — talk to a persistent Codex thread from chat while watching and controlling the very same thread in the terminal TUI. Start a task from your phone, see tool execution in tmux, and resume after an HPC allocation expires.
 
-> **Current status:** Discord is the working reference adapter. Weixin/ClawBot is an experimental integration layer for an existing CodexBridge checkout; its upstream requirements are documented and its source is intentionally not vendored.
+> **Current status:** Discord is the reference adapter; Telegram is a working standalone adapter built on the same Codex app-server lifecycle. Weixin/ClawBot remains experimental.
 
 ## ✨ Why this exists
 
@@ -20,7 +20,8 @@ Codex is excellent in a terminal. Phones are excellent at being nearby.
 This project joins them without creating a second, disconnected agent session:
 
 ```text
-Discord ─── adapter ───┐
+Telegram ─── adapter ──┐
+Discord ───── adapter ──┤
                       ├── localhost Codex app-server ── persistent thread
 Weixin ── CodexBridge ─┘                    │
                                             └── Codex terminal TUI / tmux
@@ -121,7 +122,8 @@ That gives useful “here is what I am about to do” updates without splitting 
 ```text
 codex-chat-bridge/
 ├── packages/
-│   └── discord-bridge/          # standalone Discord adapter
+│   ├── discord-bridge/          # standalone Discord adapter
+│   └── telegram-bridge/         # standalone Telegram adapter + codex-tg
 ├── integrations/
 │   └── codexbridge-weixin/      # original HPC launcher + upstream contract
 ├── skills/
@@ -175,7 +177,7 @@ Read [`SECURITY.md`](SECURITY.md) before exposing a bot beyond a private channel
 
 PRs are welcome—especially for:
 
-- additional chat adapters such as Telegram, Slack, Matrix, or iMessage;
+- additional chat adapters such as Slack, Matrix, or iMessage;
 - a clean upstream path for the CodexBridge compatibility hooks;
 - multi-project routing for a single Weixin private chat;
 - integration tests against future Codex app-server protocol revisions;
@@ -189,3 +191,5 @@ Sibling experiments that inspired the style and project-per-bot workflow:
 ## 📜 License
 
 Original code in this repository is available under the [MIT License](LICENSE). Upstream CodexBridge source is not included and remains governed by its own repository and terms.
+For Telegram setup, including the project-level `codex-tg` launcher, see
+[`packages/telegram-bridge/README.md`](packages/telegram-bridge/README.md).
