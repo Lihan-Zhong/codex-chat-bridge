@@ -2,16 +2,16 @@
 
 # Codex Chat Bridge
 
-### 把你的 Codex 终端，装进 Discord 和微信里。
+### 把你的 Codex 终端，装进 Telegram、Discord 和微信里。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-4c1.svg)](LICENSE)
 ![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A520-339933?logo=nodedotjs&logoColor=white)
-![Platforms](https://img.shields.io/badge/Chat-Discord%20%7C%20Weixin-5865F2)
+![Platforms](https://img.shields.io/badge/Chat-Telegram%20%7C%20Discord%20%7C%20Weixin-5865F2)
 ![HPC ready](https://img.shields.io/badge/HPC-recovery_ready-orange)
 
 > **太长不看版** —— 在聊天软件里和一个持久化 Codex thread 对话，同时在 Terminal TUI 中看到并控制同一个 thread。手机上发任务，tmux 里看工具执行；HPC allocation 到期后，还能接着原来的上下文继续跑。
 
-> **当前状态：** Discord 是已经可用的参考实现；微信/ClawBot 是面向现有 CodexBridge checkout 的实验性集成层。仓库明确记录了所需上游能力，但不会直接 vendoring 上游源码。
+> **当前状态：** Discord 是参考实现；Telegram 是复用同一 Codex app-server 生命周期的可用独立 adapter；微信/ClawBot 仍是实验性集成。
 
 ## ✨ 为什么需要它
 
@@ -20,7 +20,8 @@ Codex 很适合住在终端里，手机则胜在永远就在手边。
 这个项目把两者连起来，但不会偷偷创建一个彼此失忆的新会话：
 
 ```text
-Discord ─── adapter ───┐
+Telegram ─── adapter ──┐
+Discord ───── adapter ──┤
                       ├── localhost Codex app-server ── 持久 thread
 微信 ───── CodexBridge ─┘                    │
                                              └── Codex Terminal TUI / tmux
@@ -121,7 +122,8 @@ codex-dc
 ```text
 codex-chat-bridge/
 ├── packages/
-│   └── discord-bridge/          # 可独立运行的 Discord adapter
+│   ├── discord-bridge/          # 可独立运行的 Discord adapter
+│   └── telegram-bridge/         # Telegram adapter + codex-tg
 ├── integrations/
 │   └── codexbridge-weixin/      # 原创 HPC launcher + 上游兼容契约
 ├── skills/
@@ -175,7 +177,7 @@ Discord 和微信共享同一种运行模型：localhost app-server、持久 thr
 
 欢迎 PR，特别期待：
 
-- Telegram、Slack、Matrix、iMessage 等新的聊天 adapter；
+- Slack、Matrix、iMessage 等新的聊天 adapter；
 - 把 CodexBridge 兼容能力干净地贡献回上游；
 - 单个微信私聊中的多项目路由；
 - 面向未来 Codex app-server 协议版本的集成测试；
@@ -189,3 +191,5 @@ Discord 和微信共享同一种运行模型：localhost app-server、持久 thr
 ## 📜 License
 
 本仓库原创代码使用 [MIT License](LICENSE)。上游 CodexBridge 源码不包含在本仓库中，继续受其自身仓库与条款约束。
+Telegram 的配置方式和项目级 `codex-tg` launcher 见
+[`packages/telegram-bridge/README.zh.md`](packages/telegram-bridge/README.zh.md)。
